@@ -308,7 +308,7 @@
         document.getElementById('inputReview').value = '';
     }
 
-    // 终极聚合搜索：多区 iTunes + TVMaze + 中英文严谨维基百科
+    // 终极聚合搜索：多区 iTunes + TVMaze + Google Books + OpenLibrary
     async function performPublicAPISearch() {
         const query = document.getElementById('inputSearch').value.trim();
         const type = document.getElementById('inputType').value;
@@ -360,7 +360,7 @@
                 });
                 addResults(itunesItems);
 
-                // 2. 电影专属：引入专用的全球电影海报库 (完美解决维基百科只显示导演/演员的版权保护问题)
+                // 2. 电影专属：引入专用的全球电影海报库
                 if (type === 'movie') {
                     // OMDB 电影数据库
                     const omdbUrl = `https://www.omdbapi.com/?s=${encodeURIComponent(query)}&type=movie&apikey=8b4c7de3`;
@@ -397,20 +397,47 @@
                 }
 
             } else if (type === 'book') {
-                // 书籍：Google Books API
-                const url = `https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(query)}&maxResults=9`;
-                const response = await fetch(url).then(r => r.json()).catch(() => ({}));
-                
-                if (response.items) {
-                    const bookItems = response.items.map(item => {
+                // 1. 书籍：Google Books API (放宽搜索条件)
+                const gbUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=6`;
+                const gbRes = await fetch(gbUrl).then(r => r.json()).catch(() => ({}));
+                if (gbRes.items) {
+                    const gbItems = gbRes.items.map(item => {
                         const info = item.volumeInfo;
                         let coverUrl = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || '';
+                        // 替换掉缩放参数获取清晰点的大图，并强转 HTTPS
+                        coverUrl = coverUrl.replace('&edge=curl', '').replace('http:', 'https:');
                         return {
                             title: info.title || "未知书名",
-                            cover: coverUrl.replace('http:', 'https:')
+                            cover: coverUrl
                         };
                     });
-                    addResults(bookItems);
+                    addResults(gbItems);
+                }
+
+                // 2. 书籍兜底一：OpenLibrary 全球开源图书馆
+                if (results.length < 4) {
+                    const olUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5`;
+                    const olRes = await fetch(olUrl).then(r => r.json()).catch(() => ({}));
+                    if (olRes.docs) {
+                        const olItems = olRes.docs.map(i => ({
+                            title: i.title,
+                            cover: i.cover_i ? `https://covers.openlibrary.org/b/id/${i.cover_i}-M.jpg` : ''
+                        }));
+                        addResults(olItems);
+                    }
+                }
+
+                // 3. 书籍兜底二：Apple Books (iTunes)
+                if (results.length < 4) {
+                    const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=ebook&limit=4`;
+                    const itunesRes = await fetch(itunesUrl).then(r => r.json()).catch(() => ({}));
+                    if (itunesRes.results) {
+                        const itunesItems = itunesRes.results.map(item => ({
+                            title: item.trackName,
+                            cover: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '300x400bb') : ''
+                        }));
+                        addResults(itunesItems);
+                    }
                 }
             }
 
