@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="referrer" content="no-referrer">
+    <title>我的书影音</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="书影音记录">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/38b2ac/white?text=Media">
+    <meta name="theme-color" content="#2d3748">
+
+    <style>
+        :root {
+            --primary: #2d3748;
+            --accent: #38b2ac;
+            --bg: #f7fafc;
+            --card-bg: #ffffff;
+            --text-main: #1a202c;
+            --text-sub: #718096;
+            --danger: #e53e3e;
+            --border: #e2e8f0;
+            --status-wish: #4299e1;
+            --status-doing: #f6ad55;
+            --status-done: #48bb78;
+            --safe-top: env(safe-area-inset-top);
+        }
+
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: calc(var(--safe-top) + 10px) 0 20px 0;
+            line-height: 1.5;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .container { padding: 0 16px; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h1 { font-size: 1.4rem; margin: 0; }
+
+        .stats-bar {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+        .stats-bar::-webkit-scrollbar { display: none; }
+        .stat-item { flex-shrink: 0; text-align: center; }
+        .stat-label { font-size: 0.7rem; color: var(--text-sub); }
+        .stat-value { font-size: 1.2rem; font-weight: bold; display: block; }
+
+        .filter-section { background: var(--card-bg); padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+        .tabs { display: flex; gap: 15px; overflow-x: auto; border-bottom: 1px solid var(--border); margin-bottom: 15px; padding-bottom: 5px; }
+        .tab { border: none; background: none; color: var(--text-sub); font-weight: bold; padding: 5px 0; white-space: nowrap; border-bottom: 2px solid transparent; }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        /* 将主页网格改为自适应小图模式 (一排3-4个) */
+        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
+        .card { background: var(--card-bg); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: relative; }
+        .card-cover { width: 100%; aspect-ratio: 2/3; object-fit: cover; background: #eee; }
+        
+        .status-badge { position: absolute; top: 4px; right: 4px; padding: 2px 4px; border-radius: 4px; font-size: 0.55rem; color: white; font-weight: bold; z-index: 10; transform: scale(0.9); transform-origin: top right;}
+        .badge-wish { background: var(--status-wish); }
+        .badge-doing { background: var(--status-doing); }
+        .badge-done { background: var(--status-done); }
+
+        .card-content { padding: 6px; }
+        .card-title { font-weight: bold; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .card-date { font-size: 0.6rem; color: var(--text-sub); margin-top: 2px; }
+
+        .fab { position: fixed; bottom: 30px; right: 20px; width: 56px; height: 56px; border-radius: 28px; background: var(--accent); color: white; display: flex; justify-content: center; align-items: center; font-size: 24px; box-shadow: 0 4px 12px rgba(56, 178, 172, 0.4); z-index: 90; border: none; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 100; display: none; align-items: flex-end; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: white; width: 100%; border-radius: 20px 20px 0 0; padding: 20px; padding-bottom: calc(env(safe-area-inset-bottom) + 20px); max-height: 85vh; overflow-y: auto; }
+
+        .btn-full { width: 100%; padding: 12px; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: bold; font-size: 1rem; margin-top: 15px; }
+        
+        /* 将搜索结果改为一排 4 个 (缩小到 1/4) */
+        .search-results { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; max-height: 320px; overflow-y: auto; padding: 8px; background: #f0f0f0; border-radius: 8px; }
+        .search-item { background: white; border-radius: 4px; overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: 0.2s; position: relative; }
+        .search-item:active { transform: scale(0.95); }
+        .search-item img { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; background: #ddd; }
+        .search-item .item-title-overlay {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.6); color: white;
+            font-size: 0.55rem; padding: 3px; text-align: center;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        input, select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 1rem; -webkit-appearance: none; }
+        
+        .loader { width: 20px; height: 20px; border: 2px solid #eee; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-msg { grid-column: 1/-1; padding: 20px; text-align: center; font-size: 0.85rem; color: var(--text-sub); }
+        
+        .manual-link-btn { grid-column: 1/-1; padding: 10px; border: 1px dashed var(--accent); color: var(--accent); border-radius: 8px; text-align: center; font-size: 0.8rem; margin-top: 5px; cursor: pointer;}
+        
+        /* 新增：评分与短评样式 */
+        .star-rating { display: flex; justify-content: space-between; font-size: 1.5rem; color: #e2e8f0; cursor: pointer; margin-bottom: 10px; padding: 0 5px;}
+        .star-rating .star { transition: 0.2s; }
+        .star-rating .star.active { color: #ecc94b; text-shadow: 0 0 5px rgba(236, 201, 75, 0.5); }
+        .review-box { width: 100%; height: 75px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; resize: none; box-sizing: border-box; font-family: inherit; margin-bottom: 5px; color: var(--text-main);}
+        .review-box:focus { outline: none; border-color: var(--accent); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header><h1>📚 我的书影音</h1></header>
+    <div class="stats-bar" id="statsBar"></div>
+    <div class="filter-section">
+        <div class="tabs">
+            <button class="tab active" data-type="all" onclick="filterType('all')">全部</button>
+            <button class="tab" data-type="movie" onclick="filterType('movie')">电影</button>
+            <button class="tab" data-type="tv" onclick="filterType('tv')">剧集</button>
+            <button class="tab" data-type="book" onclick="filterType('book')">书籍</button>
+            <button class="tab" data-type="variety" onclick="filterType('variety')">综艺</button>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px">
+            <select id="filterStatus" onchange="applyFilters()">
+                <option value="all">所有状态</option>
+                <option value="wish">想看</option>
+                <option value="doing">在看</option>
+                <option value="done">看完</option>
+            </select>
+            <select id="filterYear" onchange="applyFilters()">
+                <option value="all">所有年份</option>
+            </select>
+            <select id="filterMonth" onchange="applyFilters()">
+                <option value="all">所有月份</option>
+                <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+                <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+                <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+                <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+            </select>
+        </div>
+    </div>
+    <div class="media-grid" id="mediaGrid"></div>
+</div>
+
+<button class="fab" onclick="openAddModal()">+</button>
+
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin:0">录入新条目</h3>
+            <span onclick="closeModal()" style="font-size:28px; color:#ccc; padding:0 10px; cursor:pointer">×</span>
+        </div>
+        
+        <div style="margin-bottom:15px">
+            <select id="inputType" onchange="resetSearch()">
+                <option value="movie">🎬 电影</option>
+                <option value="tv">📺 剧集</option>
+                <option value="book">📖 书籍</option>
+                <option value="variety">🎤 综艺</option>
+            </select>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-bottom:10px">
+            <input type="text" id="inputSearch" placeholder="搜索名称寻找公开缩略图...">
+            <button onclick="performPublicAPISearch()" style="padding:0 20px; border-radius:8px; border:1px solid var(--border); background:#fff; font-size:1.2rem; cursor:pointer">🔍</button>
+        </div>
+
+        <div id="searchResults" class="search-results" style="display:none"></div>
+
+        <div id="detailForm" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:15px">
+            <div style="display:flex; gap:12px; margin-bottom:15px">
+                <img id="previewImg" src="" style="width:80px; height:120px; object-fit:cover; border-radius:4px; background:#f0f0f0">
+                <div style="flex:1">
+                    <label style="font-size:0.75rem; color:var(--text-sub)">名称</label>
+                    <input type="text" id="inputTitle" placeholder="输入名称" style="margin-bottom:10px; font-weight:bold">
+                    <label style="font-size:0.75rem; color:var(--text-sub)">状态</label>
+                    <select id="inputStatus" onchange="toggleEvaluation()">
+                        <option value="done">✅ 看完</option>
+                        <option value="doing">⏳ 在看</option>
+                        <option value="wish">⭐ 想看</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom:15px">
+                <label style="font-size:0.75rem; color:var(--text-sub)">完成日期</label>
+                <input type="date" id="inputDate">
+            </div>
+
+            <!-- 新增：评分和短评区域 (默认隐藏，仅"看完"时显示) -->
+            <div id="evaluationSection" style="display:none; border-top: 1px dashed #eee; padding-top: 15px; margin-bottom: 15px;">
+                <label style="font-size:0.75rem; color:var(--text-sub); display:block; text-align:center; margin-bottom:5px;">打个分吧 (1-10星)</label>
+                <div class="star-rating" id="starContainer">
+                    <span class="star" onclick="setRating(1)">★</span>
+                    <span class="star" onclick="setRating(2)">★</span>
+                    <span class="star" onclick="setRating(3)">★</span>
+                    <span class="star" onclick="setRating(4)">★</span>
+                    <span class="star" onclick="setRating(5)">★</span>
+                    <span class="star" onclick="setRating(6)">★</span>
+                    <span class="star" onclick="setRating(7)">★</span>
+                    <span class="star" onclick="setRating(8)">★</span>
+                    <span class="star" onclick="setRating(9)">★</span>
+                    <span class="star" onclick="setRating(10)">★</span>
+                </div>
+                <textarea id="inputReview" class="review-box" placeholder="写点短评记录一下感受..."></textarea>
+            </div>
+
+            <button class="btn-full" onclick="saveItem()">确认并保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 新增：自定义的链接输入弹窗 -->
+<div class="modal-overlay" id="promptModal">
+    <div class="modal" style="max-height: none;">
+        <h3 id="promptTitle" style="margin-top: 0; margin-bottom: 15px;">请输入图片链接</h3>
+        <input type="text" id="promptInput" placeholder="以 http:// 或 https:// 开头..." style="margin-bottom: 15px;">
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-full" style="background:#f1f5f9; color:#333; margin-top:0;" onclick="closePromptModal()">取消</button>
+            <button class="btn-full" style="margin-top:0;" onclick="submitPromptModal()">确定</button>
+        </div>
+    </div>
+</div>
+
+<!-- 新增：自定义的删除确认弹窗 -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal" style="max-height: none;">
+        <h3 style="margin-top: 0; margin-bottom: 15px;">确认操作</h3>
+        <p id="confirmMessage" style="color: var(--text-sub); margin-bottom: 20px;">确定要执行此操作吗？</p>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-full" style="background:#f1f5f9; color:#333; margin-top:0;" onclick="closeConfirmModal()">取消</button>
+            <button class="btn-full" style="background:var(--danger); margin-top:0;" onclick="submitConfirmModal()">确定</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="viewModal">
+    <div class="modal" id="viewContent"></div>
+</div>
+
+<script>
+    let mediaList = JSON.parse(localStorage.getItem('my_media_log_v2')) || [];
+    let activeType = 'all';
+
+    // 新增：提取动态生成年份逻辑为一个独立函数
+    function updateYearOptions() {
+        const yearSelect = document.getElementById('filterYear');
+        const currentSelected = yearSelect.value; // 记住当前选中的选项，防止刷新后跳回
+        
+        // 清空列表，重置为默认
+        yearSelect.innerHTML = '<option value="all">所有年份</option>';
+        
+        let years = new Set(mediaList.map(item => new Date(item.date).getFullYear()));
+        years.add(new Date().getFullYear()); // 始终确保当前年份存在
+        
+        Array.from(years).filter(y => !isNaN(y)).sort((a,b) => b - a).forEach(y => {
+            yearSelect.add(new Option(y + '年', y));
+        });
+
+        // 尝试恢复之前选中的年份
+        if (Array.from(yearSelect.options).some(opt => opt.value === currentSelected)) {
+            yearSelect.value = currentSelected;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const now = new Date();
+        
+        // 页面加载时更新一次年份
+        updateYearOptions();
+
+        // 默认选中当前年、月
+        document.getElementById('filterYear').value = now.getFullYear();
+        document.getElementById('filterMonth').value = now.getMonth() + 1;
+        applyFilters();
+    });
+
+    // 新增：评分与评价逻辑
+    let currentRating = 0;
+    function setRating(val) {
+        currentRating = val;
+        const stars = document.querySelectorAll('#starContainer .star');
+        stars.forEach((s, idx) => {
+            s.classList.toggle('active', idx < val);
+        });
+    }
+
+    function toggleEvaluation() {
+        const status = document.getElementById('inputStatus').value;
+        const evalSec = document.getElementById('evaluationSection');
+        if (status === 'done') {
+            evalSec.style.display = 'block';
+        } else {
+            evalSec.style.display = 'none';
+        }
+    }
+
+    function resetSearch() {
+        document.getElementById('searchResults').style.display = 'none';
+        document.getElementById('detailForm').style.display = 'none';
+        document.getElementById('inputSearch').value = '';
+        setRating(0);
+        document.getElementById('inputReview').value = '';
+    }
+
+    // 终极聚合搜索：多区 iTunes + TVMaze + 中英文严谨维基百科
+    async function performPublicAPISearch() {
+        const query = document.getElementById('inputSearch').value.trim();
+        const type = document.getElementById('inputType').value;
+        const resBox = document.getElementById('searchResults');
+        
+        if(!query) return;
+
+        resBox.style.display = 'grid';
+        resBox.innerHTML = '<div class="error-msg"><span class="loader"></span>正在聚合全球图库...</div>';
+
+        try {
+            let results = [];
+            const uniqueTitles = new Set();
+
+            // 统一的去重和添加方法
+            const addResults = (items) => {
+                items.forEach(item => {
+                    if (!item.cover || !item.title) return;
+                    const lowerTitle = item.title.toLowerCase();
+                    if (!uniqueTitles.has(lowerTitle)) {
+                        uniqueTitles.add(lowerTitle);
+                        results.push(item);
+                    }
+                });
+            };
+
+            if (type === 'movie' || type === 'tv' || type === 'variety') {
+                
+                // 1. iTunes 四大区并发抓取
+                const mediaType = type === 'movie' ? 'movie' : 'tvShow';
+                const regions = ['hk', 'tw', 'us', 'cn']; 
+                
+                const itunesPromises = regions.map(region => {
+                    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=${region}&media=${mediaType}&limit=3`;
+                    return fetch(url).then(r => r.json()).catch(() => ({ results: [] }));
+                });
+                
+                const itunesResponses = await Promise.all(itunesPromises);
+                const itunesItems = [];
+                itunesResponses.forEach(data => {
+                    if (data && data.results) {
+                        data.results.forEach(item => {
+                            itunesItems.push({
+                                title: item.trackName || item.collectionName || item.artistName || "未知标题",
+                                cover: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '300x400bb') : ''
+                            });
+                        });
+                    }
+                });
+                addResults(itunesItems);
+
+                // 2. 电影专属：引入专用的全球电影海报库 (完美解决维基百科只显示导演/演员的版权保护问题)
+                if (type === 'movie') {
+                    // OMDB 电影数据库
+                    const omdbUrl = `https://www.omdbapi.com/?s=${encodeURIComponent(query)}&type=movie&apikey=8b4c7de3`;
+                    const omdbRes = await fetch(omdbUrl).then(r => r.json()).catch(() => ({}));
+                    if (omdbRes.Search) {
+                        const omdbItems = omdbRes.Search.filter(i => i.Poster && i.Poster !== 'N/A').map(i => ({
+                            title: i.Title,
+                            cover: i.Poster.replace('http:', 'https:') // 确保加载安全
+                        }));
+                        addResults(omdbItems);
+                    }
+                    
+                    // YTS 高清海报库
+                    const ytsUrl = `https://yts.mx/api/v2/list_movies.json?query_term=${encodeURIComponent(query)}`;
+                    const ytsRes = await fetch(ytsUrl).then(r => r.json()).catch(() => ({}));
+                    if (ytsRes.data && ytsRes.data.movies) {
+                        const ytsItems = ytsRes.data.movies.map(i => ({
+                            title: i.title,
+                            cover: i.large_cover_image
+                        }));
+                        addResults(ytsItems);
+                    }
+                }
+
+                // 3. 剧集/综艺专属：TVMaze 兜底
+                if (type === 'tv' || type === 'variety') {
+                    const tvMazeUrl = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`;
+                    const tvMazeRes = await fetch(tvMazeUrl).then(r => r.json()).catch(()=>[]);
+                    const tvMazeItems = tvMazeRes.filter(i => i.show && i.show.image && i.show.image.medium).map(i => ({
+                        title: i.show.name,
+                        cover: i.show.image.medium.replace('http:', 'https:')
+                    }));
+                    addResults(tvMazeItems);
+                }
+
+            } else if (type === 'book') {
+                // 书籍：Google Books API
+                const url = `https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(query)}&maxResults=9`;
+                const response = await fetch(url).then(r => r.json()).catch(() => ({}));
+                
+                if (response.items) {
+                    const bookItems = response.items.map(item => {
+                        const info = item.volumeInfo;
+                        let coverUrl = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || '';
+                        return {
+                            title: info.title || "未知书名",
+                            cover: coverUrl.replace('http:', 'https:')
+                        };
+                    });
+                    addResults(bookItems);
+                }
+            }
+
+            // 渲染结果面板
+            if(results.length > 0) {
+                resBox.innerHTML = results.slice(0, 9).map(item => `
+                    <div class="search-item" onclick="selectItem('${item.title.replace(/'/g, "\\'")}', '${item.cover}')">
+                        <img src="${item.cover}" onerror="this.parentElement.style.display='none'" loading="lazy">
+                        <div class="item-title-overlay">${item.title}</div>
+                    </div>
+                `).join('') + `
+                    <div class="manual-link-btn" onclick="promptManualLink('${query}')" style="grid-column: 1/-1;">🔗 没找到心仪封面？手动输入图片链接</div>
+                `;
+            } else {
+                resBox.innerHTML = `
+                    <div class="error-msg">未找到相关的公开封面。<br>建议：使用英文原名搜索，或直接手动添加。</div>
+                    <div class="manual-link-btn" onclick="promptManualLink('${query}')">🔗 手动输入图片链接</div>
+                `;
+            }
+
+        } catch (err) {
+            console.error("API Error:", err);
+            resBox.innerHTML = `
+                <div class="error-msg">网络请求遇到问题，但您仍可以手动添加。</div>
+                <div class="manual-link-btn" onclick="promptManualLink('${query}')">🔗 手动输入图片链接</div>
+            `;
+        }
+    }
+
+    // --- 自定义弹窗逻辑 ---
+    let promptCallback = null;
+
+    function promptManualLink(query) {
+        document.getElementById('promptTitle').innerText = `手动添加 "${query}" 的封面`;
+        document.getElementById('promptInput').value = '';
+        document.getElementById('promptModal').classList.add('open');
+        promptCallback = function(url) {
+            if (url && url.startsWith('http')) {
+                selectItem(query, url);
+            }
+        };
+    }
+
+    function closePromptModal() {
+        document.getElementById('promptModal').classList.remove('open');
+        promptCallback = null;
+    }
+
+    function submitPromptModal() {
+        const val = document.getElementById('promptInput').value.trim();
+        if (promptCallback) promptCallback(val);
+        closePromptModal();
+    }
+
+    let confirmCallback = null;
+
+    function customConfirm(msg, callback) {
+        document.getElementById('confirmMessage').innerText = msg;
+        document.getElementById('confirmModal').classList.add('open');
+        confirmCallback = callback;
+    }
+
+    function closeConfirmModal() {
+        document.getElementById('confirmModal').classList.remove('open');
+        confirmCallback = null;
+    }
+
+    function submitConfirmModal() {
+        if (confirmCallback) confirmCallback();
+        closeConfirmModal();
+    }
+    // --- 结束自定义弹窗逻辑 ---
+
+    function selectItem(title, cover) {
+        const finalCover = cover || `https://placehold.co/300x450/2d3748/white?text=${encodeURIComponent(title)}`;
+        document.getElementById('inputTitle').value = title;
+        document.getElementById('previewImg').src = finalCover;
+        document.getElementById('detailForm').setAttribute('data-cover', finalCover);
+        document.getElementById('detailForm').style.display = 'block';
+        document.getElementById('searchResults').style.display = 'none';
+        document.getElementById('inputDate').valueAsDate = new Date();
+        
+        // 每次选中新项目时，重置并刷新评分区状态
+        setRating(0);
+        document.getElementById('inputReview').value = '';
+        document.getElementById('inputStatus').value = 'done'; // 默认选看完
+        toggleEvaluation(); 
+    }
+
+    function saveItem() {
+        const title = document.getElementById('inputTitle').value.trim();
+        if(!title) return;
+
+        const newItem = {
+            id: Date.now(),
+            type: document.getElementById('inputType').value,
+            title: title,
+            status: document.getElementById('inputStatus').value,
+            date: document.getElementById('inputDate').value,
+            cover: document.getElementById('detailForm').getAttribute('data-cover'),
+            // 新增：只有状态是"看完"时才保存分数和短评
+            rating: document.getElementById('inputStatus').value === 'done' ? currentRating : 0,
+            review: document.getElementById('inputStatus').value === 'done' ? document.getElementById('inputReview').value.trim() : ''
+        };
+        mediaList.push(newItem);
+        localStorage.setItem('my_media_log_v2', JSON.stringify(mediaList));
+        updateYearOptions(); // 每次保存新条目后，自动刷新年份下拉框
+        closeModal();
+        applyFilters();
+    }
+
+    function applyFilters() {
+        const statusF = document.getElementById('filterStatus').value;
+        const yearF = document.getElementById('filterYear').value;
+        const monthF = document.getElementById('filterMonth').value;
+
+        const filtered = mediaList.filter(item => {
+            const date = new Date(item.date);
+            const t = activeType === 'all' || item.type === activeType;
+            const s = statusF === 'all' || item.status === statusF;
+            const y = yearF === 'all' || (!isNaN(date.getFullYear()) && date.getFullYear().toString() === yearF);
+            const m = monthF === 'all' || (!isNaN(date.getMonth()) && (date.getMonth() + 1).toString() === monthF);
+            return t && s && y && m;
+        });
+
+        const stats = { movie:0, tv:0, book:0, variety:0 };
+        mediaList.forEach(i => stats[i.type]++);
+
+        document.getElementById('statsBar').innerHTML = `
+            <div class="stat-item"><span class="stat-label">总计</span><span class="stat-value">${mediaList.length}</span></div>
+            <div class="stat-item"><span class="stat-label">电影</span><span class="stat-value">${stats.movie}</span></div>
+            <div class="stat-item"><span class="stat-label">剧集</span><span class="stat-value">${stats.tv}</span></div>
+            <div class="stat-item"><span class="stat-label">书籍</span><span class="stat-value">${stats.book}</span></div>
+            <div class="stat-item"><span class="stat-label">综艺</span><span class="stat-value">${stats.variety}</span></div>
+        `;
+
+        const grid = document.getElementById('mediaGrid');
+        grid.innerHTML = '';
+        filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
+        
+        if(filtered.length === 0) {
+            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:50px; color:#ccc">暂无记录</div>';
+        }
+
+        filtered.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.onclick = () => openViewModal(item.id);
+            
+            // 新增：如果打过分，在卡片日期栏同行显示一个袖珍金星
+            const ratingDisplay = (item.status === 'done' && item.rating > 0) 
+                ? `<span style="color:#ecc94b; font-size:0.6rem; font-weight:bold;">★ ${item.rating}</span>` 
+                : '';
+
+            div.innerHTML = `
+                <div class="status-badge badge-${item.status}">${item.status==='done'?'看完':(item.status==='wish'?'想看':'在看')}</div>
+                <img src="${item.cover}" class="card-cover">
+                <div class="card-content">
+                    <div class="card-title">${item.title}</div>
+                    <div class="card-date" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>${item.date}</span>
+                        ${ratingDisplay}
+                    </div>
+                </div>
+            `;
+            grid.appendChild(div);
+        });
+    }
+
+    function openAddModal() { 
+        document.getElementById('addModal').classList.add('open'); 
+        resetSearch();
+    }
+    function closeModal() { document.getElementById('addModal').classList.remove('open'); }
+    
+    function filterType(t) {
+        activeType = t;
+        document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.getAttribute('data-type') === t));
+        applyFilters();
+    }
+
+    function openViewModal(id) {
+        const item = mediaList.find(i => i.id === id);
+        
+        // 新增：生成详情页的十颗星及短评展示结构
+        let evaluationHtml = '';
+        if (item.status === 'done') {
+            let starsStr = '';
+            for(let i=1; i<=10; i++) {
+                starsStr += i <= (item.rating || 0) ? '★' : '☆';
+            }
+            if (item.rating > 0) {
+                evaluationHtml += `<div style="color:#ecc94b; font-size:1.1rem; margin:8px 0; letter-spacing:2px;">${starsStr} <span style="font-size:0.8rem; color:#888; font-weight:normal; letter-spacing:0;">${item.rating}/10</span></div>`;
+            }
+            
+            if (item.review) {
+                evaluationHtml += `<div style="background:#f8fafc; padding:12px; border-radius:8px; font-size:0.85rem; color:#4a5568; text-align:left; margin:15px 0; line-height:1.6; word-break:break-all; border:1px solid #e2e8f0; position:relative;">
+                    <span style="position:absolute; top:-8px; left:12px; background:#f8fafc; padding:0 4px; color:#a0aec0; font-size:0.7rem;">我的短评</span>
+                    ${item.review}
+                </div>`;
+            }
+        }
+
+        document.getElementById('viewContent').innerHTML = `
+            <div style="text-align:center">
+                <img src="${item.cover}" style="width:140px; border-radius:8px; box-shadow:0 4px 15px rgba(0,0,0,0.2)">
+                <h3 style="margin-top:15px; margin-bottom:5px">${item.title}</h3>
+                <p style="color:#666; font-size:0.9rem; margin-top:0;">${item.date} · ${item.status === 'done' ? '看完' : (item.status==='wish'?'想看':'在看')}</p>
+                ${evaluationHtml}
+                <div style="color:var(--danger); margin:25px 0 15px; font-weight:bold; cursor:pointer" onclick="deleteItem(${item.id})">🗑️ 删除此记录</div>
+                <button class="btn-full" style="background:#f1f5f9; color:#333" onclick="closeViewModal()">返回</button>
+            </div>
+        `;
+        document.getElementById('viewModal').classList.add('open');
+    }
+    function closeViewModal() { document.getElementById('viewModal').classList.remove('open'); }
+    
+    // 修改为使用新的自定义删除确认框
+    function deleteItem(id) {
+        customConfirm('确定要永久删除这条记录吗？', () => {
+            mediaList = mediaList.filter(i => i.id !== id);
+            localStorage.setItem('my_media_log_v2', JSON.stringify(mediaList));
+            updateYearOptions(); // 删除记录后也刷新一下年份下拉框
+            closeViewModal();
+            applyFilters();
+        });
+    }
+</script>
+</body>
+</html>
